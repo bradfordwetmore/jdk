@@ -89,9 +89,9 @@ void Canonicalizer::do_Op2(Op2* x) {
         { jint a = x->x()->type()->as_IntConstant()->value();
           jint b = x->y()->type()->as_IntConstant()->value();
           switch (x->op()) {
-            case Bytecodes::_iadd: set_constant(a + b); return;
-            case Bytecodes::_isub: set_constant(a - b); return;
-            case Bytecodes::_imul: set_constant(a * b); return;
+            case Bytecodes::_iadd: set_constant(java_add(a, b)); return;
+            case Bytecodes::_isub: set_constant(java_subtract(a, b)); return;
+            case Bytecodes::_imul: set_constant(java_multiply(a, b)); return;
             case Bytecodes::_idiv:
               if (b != 0) {
                 if (a == min_jint && b == -1) {
@@ -335,9 +335,9 @@ void Canonicalizer::do_NegateOp(NegateOp* x) {
   ValueType* t = x->x()->type();
   if (t->is_constant()) {
     switch (t->tag()) {
-      case intTag   : set_constant(-t->as_IntConstant   ()->value()); return;
-      case longTag  : set_constant(-t->as_LongConstant  ()->value()); return;
-      case floatTag : set_constant(-t->as_FloatConstant ()->value()); return;
+      case intTag   : set_constant(java_negate(t->as_IntConstant()->value())); return;
+      case longTag  : set_constant(java_negate(t->as_LongConstant()->value())); return;
+      case floatTag : set_constant(-t->as_FloatConstant()->value()); return;
       case doubleTag: set_constant(-t->as_DoubleConstant()->value()); return;
       default       : ShouldNotReachHere();
     }
@@ -790,7 +790,7 @@ void Canonicalizer::do_If(If* x) {
         else if (lss_sux == gtr_sux) { cond = If::neq; tsux = lss_sux; fsux = eql_sux; }
         else if (eql_sux == gtr_sux) { cond = If::geq; tsux = eql_sux; fsux = lss_sux; }
         else                         { ShouldNotReachHere();                           }
-        If* canon = new If(cmp->x(), cond, nan_sux == tsux, cmp->y(), tsux, fsux, cmp->state_before(), x->is_safepoint());
+        If* canon = new If(cmp->x(), cond, nan_sux == tsux, cmp->y(), tsux, fsux, x->state_before(), x->is_safepoint());
         if (cmp->x() == cmp->y()) {
           do_If(canon);
         } else {

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, 2021, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2019, 2023, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -24,10 +24,10 @@
  */
 package jdk.incubator.vector;
 
+import java.lang.foreign.MemorySegment;
 import jdk.internal.vm.annotation.ForceInline;
 import jdk.internal.vm.vector.VectorSupport;
 
-import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.function.IntUnaryOperator;
 
@@ -61,6 +61,12 @@ abstract class AbstractVector<E> extends Vector<E> {
      */
     /*package-private*/
     static final ByteOrder REGISTER_ENDIAN = ByteOrder.LITTLE_ENDIAN;
+
+    /*package-private*/
+    static final int OFFSET_IN_RANGE = 1;
+
+    /*package-private*/
+    static final int OFFSET_OUT_OF_RANGE = 0;
 
     /*package-private*/
     AbstractVector(Object bits) {
@@ -182,19 +188,64 @@ abstract class AbstractVector<E> extends Vector<E> {
 
     abstract AbstractMask<E> maskFromArray(boolean[] bits);
 
-    abstract AbstractShuffle<E> iotaShuffle();
+    abstract <F> VectorShuffle<F> toShuffle(AbstractSpecies<F> dsp);
 
-    abstract AbstractShuffle<E> iotaShuffle(int start, int step, boolean wrap);
+    /*package-private*/
+    @ForceInline
+    final <F> VectorShuffle<F> toShuffleTemplate(AbstractSpecies<F> dsp) {
+        Class<?> etype = vspecies().elementType();
+        Class<?> dvtype = dsp.shuffleType();
+        Class<?> dtype = dsp.asIntegral().elementType();
+        int dlength = dsp.dummyVector().length();
+        return VectorSupport.convert(VectorSupport.VECTOR_OP_CAST,
+                                     getClass(), etype, length(),
+                                     dvtype, dtype, dlength,
+                                     this, dsp,
+                                     AbstractVector::toShuffle0);
+    }
 
-    /*do not alias this byte array*/
-    abstract AbstractShuffle<E> shuffleFromBytes(byte[] reorder);
+    abstract <F> VectorShuffle<F> toShuffle0(AbstractSpecies<F> dsp);
+
+    @ForceInline
+    public final
+    VectorShuffle<E> toShuffle() {
+        return toShuffle(vspecies());
+    }
+
+    abstract VectorShuffle<E> iotaShuffle();
+
+    @ForceInline
+    @SuppressWarnings({"rawtypes", "unchecked"})
+    final VectorShuffle<E> iotaShuffle(int start, int step, boolean wrap) {
+        if (start == 0 && step == 1) {
+            return iotaShuffle();
+        }
+
+        if ((length() & (length() - 1)) != 0) {
+            return wrap ? shuffleFromOp(i -> (VectorIntrinsics.wrapToRange(i * step + start, length())))
+                        : shuffleFromOp(i -> i * step + start);
+        }
+
+        AbstractSpecies<?> species = vspecies().asIntegral();
+        Vector iota = species.iota();
+        iota = iota.lanewise(VectorOperators.MUL, step)
+                   .lanewise(VectorOperators.ADD, start);
+        Vector wrapped = iota.lanewise(VectorOperators.AND, length() - 1);
+
+        if (!wrap) {
+            Vector wrappedEx = wrapped.lanewise(VectorOperators.SUB, length());
+            VectorMask<?> mask = wrapped.compare(VectorOperators.EQ, iota);
+            wrapped = wrappedEx.blend(wrapped, mask);
+        }
+        return ((AbstractVector) wrapped).toShuffle(vspecies());
+    }
 
     abstract AbstractShuffle<E> shuffleFromArray(int[] indexes, int i);
 
     abstract AbstractShuffle<E> shuffleFromOp(IntUnaryOperator fn);
 
     /*package-private*/
-    abstract AbstractVector<E> fromByteArray0(byte[] a, int offset);
+    abstract AbstractVector<E> fromMemorySegment0(MemorySegment ms, long offset);
 
     /*package-private*/
     abstract AbstractVector<E> maybeSwap(ByteOrder bo);
@@ -504,23 +555,23 @@ abstract class AbstractVector<E> extends Vector<E> {
     AbstractVector<F> defaultReinterpret(AbstractSpecies<F> rsp) {
         int blen = Math.max(this.bitSize(), rsp.vectorBitSize()) / Byte.SIZE;
         ByteOrder bo = ByteOrder.nativeOrder();
-        ByteBuffer bb = ByteBuffer.allocate(blen);
-        this.intoByteBuffer(bb, 0, bo);
+        MemorySegment ms = MemorySegment.ofArray(new byte[blen]);
+        this.intoMemorySegment(ms, 0, bo);
         VectorMask<F> m = rsp.maskAll(true);
         // enum-switches don't optimize properly JDK-8161245
         switch (rsp.laneType.switchKey) {
         case LaneType.SK_BYTE:
-            return ByteVector.fromByteBuffer(rsp.check(byte.class), bb, 0, bo, m.check(byte.class)).check0(rsp);
+            return ByteVector.fromMemorySegment(rsp.check(byte.class), ms, 0, bo, m.check(byte.class)).check0(rsp);
         case LaneType.SK_SHORT:
-            return ShortVector.fromByteBuffer(rsp.check(short.class), bb, 0, bo, m.check(short.class)).check0(rsp);
+            return ShortVector.fromMemorySegment(rsp.check(short.class), ms, 0, bo, m.check(short.class)).check0(rsp);
         case LaneType.SK_INT:
-            return IntVector.fromByteBuffer(rsp.check(int.class), bb, 0, bo, m.check(int.class)).check0(rsp);
+            return IntVector.fromMemorySegment(rsp.check(int.class), ms, 0, bo, m.check(int.class)).check0(rsp);
         case LaneType.SK_LONG:
-            return LongVector.fromByteBuffer(rsp.check(long.class), bb, 0, bo, m.check(long.class)).check0(rsp);
+            return LongVector.fromMemorySegment(rsp.check(long.class), ms, 0, bo, m.check(long.class)).check0(rsp);
         case LaneType.SK_FLOAT:
-            return FloatVector.fromByteBuffer(rsp.check(float.class), bb, 0, bo, m.check(float.class)).check0(rsp);
+            return FloatVector.fromMemorySegment(rsp.check(float.class), ms, 0, bo, m.check(float.class)).check0(rsp);
         case LaneType.SK_DOUBLE:
-            return DoubleVector.fromByteBuffer(rsp.check(double.class), bb, 0, bo, m.check(double.class)).check0(rsp);
+            return DoubleVector.fromMemorySegment(rsp.check(double.class), ms, 0, bo, m.check(double.class)).check0(rsp);
         default:
             throw new AssertionError(rsp.toString());
         }
@@ -728,15 +779,6 @@ abstract class AbstractVector<E> extends Vector<E> {
                     AbstractVector::defaultReinterpret);
         }
         throw new AssertionError();
-    }
-
-    // Byte buffer wrappers.
-    static ByteBuffer wrapper(ByteBuffer bb, ByteOrder bo) {
-        return bb.duplicate().order(bo);
-    }
-
-    static ByteBuffer wrapper(byte[] a, ByteOrder bo) {
-        return ByteBuffer.wrap(a).order(bo);
     }
 
     static {

@@ -407,6 +407,11 @@ public abstract class ClassLoader {
         return nid;
     }
 
+    // Returns nameAndId string for exception message printing
+    String nameAndId() {
+        return nameAndId;
+    }
+
     /**
      * Creates a new class loader of the specified name and using the
      * specified parent class loader for delegation.
@@ -494,7 +499,7 @@ public abstract class ClassLoader {
     }
 
     // package-private used by StackTraceElement to avoid
-    // calling the overrideable getName method
+    // calling the overridable getName method
     final String name() {
         return name;
     }

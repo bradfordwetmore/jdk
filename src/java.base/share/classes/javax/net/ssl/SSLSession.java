@@ -70,7 +70,7 @@ public interface SSLSession {
      *
      * @return the Session identifier
      */
-    public byte[] getId();
+    byte[] getId();
 
 
     /**
@@ -91,7 +91,7 @@ public interface SSLSession {
      * @return the session context used for this session, or null
      * if the context is unavailable.
      */
-    public SSLSessionContext getSessionContext();
+    SSLSessionContext getSessionContext();
 
 
     /**
@@ -100,7 +100,7 @@ public interface SSLSession {
      *
      * @return the time this Session was created
      */
-    public long getCreationTime();
+    long getCreationTime();
 
 
     /**
@@ -119,7 +119,7 @@ public interface SSLSession {
      *
      * @return the last time this Session was accessed
      */
-    public long getLastAccessedTime();
+    long getLastAccessedTime();
 
 
     /**
@@ -132,7 +132,7 @@ public interface SSLSession {
      *
      * @see #isValid()
      */
-    public void invalidate();
+    void invalidate();
 
 
     /**
@@ -144,7 +144,7 @@ public interface SSLSession {
      *
      * @since 1.5
      */
-    public boolean isValid();
+    boolean isValid();
 
 
     /**
@@ -166,7 +166,7 @@ public interface SSLSession {
      * @param value the data object to be bound. This may not be null.
      * @throws IllegalArgumentException if either argument is null.
      */
-    public void putValue(String name, Object value);
+    void putValue(String name, Object value);
 
 
     /**
@@ -181,7 +181,7 @@ public interface SSLSession {
      *          not exist.
      * @throws IllegalArgumentException if the argument is null.
      */
-    public Object getValue(String name);
+    Object getValue(String name);
 
 
     /**
@@ -198,7 +198,7 @@ public interface SSLSession {
      *          across different access control contexts
      * @throws IllegalArgumentException if the argument is null.
      */
-    public void removeValue(String name);
+    void removeValue(String name);
 
 
     /**
@@ -211,7 +211,7 @@ public interface SSLSession {
      * @return a non-null (possibly empty) array of names of the objects
      *  bound to this Session.
      */
-    public String [] getValueNames();
+    String [] getValueNames();
 
     /**
      * Returns the identity of the peer which was established as part
@@ -231,7 +231,7 @@ public interface SSLSession {
      *          been verified
      * @see #getPeerPrincipal()
      */
-    public java.security.cert.Certificate [] getPeerCertificates()
+    java.security.cert.Certificate [] getPeerCertificates()
             throws SSLPeerUnverifiedException;
 
     /**
@@ -254,7 +254,7 @@ public interface SSLSession {
      *
      * @see #getLocalPrincipal()
      */
-    public java.security.cert.Certificate [] getLocalCertificates();
+    java.security.cert.Certificate [] getLocalCertificates();
 
     /**
      * Returns the identity of the peer which was established as part of
@@ -272,7 +272,7 @@ public interface SSLSession {
      *
      * @since 1.5
      */
-    public Principal getPeerPrincipal()
+    Principal getPeerPrincipal()
             throws SSLPeerUnverifiedException;
 
     /**
@@ -288,7 +288,7 @@ public interface SSLSession {
      *
      * @since 1.5
      */
-    public Principal getLocalPrincipal();
+    Principal getLocalPrincipal();
 
     /**
      * Returns the name of the SSL cipher suite which is used for all
@@ -300,7 +300,7 @@ public interface SSLSession {
      *
      * @return the name of the session's cipher suite
      */
-    public String getCipherSuite();
+    String getCipherSuite();
 
     /**
      * Returns the standard name of the protocol used for all
@@ -311,7 +311,7 @@ public interface SSLSession {
      * @return the standard name of the protocol used for all
      * connections in the session.
      */
-    public String getProtocol();
+    String getProtocol();
 
     /**
      * Returns the host name of the peer in this session.
@@ -331,7 +331,7 @@ public interface SSLSession {
      * @return  the host name of the peer host, or null if no information
      *          is available.
      */
-    public String getPeerHost();
+    String getPeerHost();
 
     /**
      * Returns the port number of the peer in this session.
@@ -348,7 +348,7 @@ public interface SSLSession {
      *
      * @since 1.5
      */
-    public int getPeerPort();
+    int getPeerPort();
 
     /**
      * Gets the current size of the largest SSL/TLS/DTLS packet that is
@@ -367,7 +367,7 @@ public interface SSLSession {
      *
      * @since 1.5
      */
-    public int getPacketBufferSize();
+    int getPacketBufferSize();
 
 
     /**
@@ -386,5 +386,5 @@ public interface SSLSession {
      *
      * @since 1.5
      */
-    public int getApplicationBufferSize();
+    int getApplicationBufferSize();
 }

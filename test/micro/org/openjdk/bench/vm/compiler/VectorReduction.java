@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2020, 2023, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -31,6 +31,9 @@ import java.util.Random;
 @BenchmarkMode(Mode.AverageTime)
 @OutputTimeUnit(TimeUnit.NANOSECONDS)
 @State(Scope.Thread)
+@Warmup(iterations = 4, time = 2, timeUnit = TimeUnit.SECONDS)
+@Measurement(iterations = 4, time = 2, timeUnit = TimeUnit.SECONDS)
+@Fork(value = 3)
 public abstract class VectorReduction {
     @Param({"512"})
     public int COUNT;
@@ -39,16 +42,16 @@ public abstract class VectorReduction {
     private int[] intsB;
     private int[] intsC;
     private int[] intsD;
-    private int resI;
     private long[] longsA;
     private long[] longsB;
     private long[] longsC;
     private long[] longsD;
-    private long resL;
 
     @Param("0")
     private int seed;
     private Random r = new Random(seed);
+
+    private static int globalResI;
 
     @Setup
     public void init() {
@@ -72,61 +75,96 @@ public abstract class VectorReduction {
     }
 
     @Benchmark
-    public void andRedI() {
+    public void andRedI(Blackhole bh) {
+        int resI = 0xFFFF;
         for (int i = 0; i < COUNT; i++) {
             intsD[i] = (intsA[i] * intsB[i]) + (intsA[i] * intsC[i]) + (intsB[i] * intsC[i]);
             resI &= intsD[i];
         }
+        bh.consume(resI);
     }
 
     @Benchmark
-    public void orRedI() {
+    public void orRedI(Blackhole bh) {
+        int resI = 0x0000;
         for (int i = 0; i < COUNT; i++) {
             intsD[i] = (intsA[i] * intsB[i]) + (intsA[i] * intsC[i]) + (intsB[i] * intsC[i]);
             resI |= intsD[i];
         }
+        bh.consume(resI);
     }
 
     @Benchmark
-    public void xorRedI() {
+    public void xorRedI(Blackhole bh) {
+        int resI = 0x0000;
         for (int i = 0; i < COUNT; i++) {
             intsD[i] = (intsA[i] * intsB[i]) + (intsA[i] * intsC[i]) + (intsB[i] * intsC[i]);
             resI ^= intsD[i];
         }
+        bh.consume(resI);
     }
 
     @Benchmark
-    public void andRedL() {
+    public void andRedL(Blackhole bh) {
+        long resL = 0xFFFFFFFF;
         for (int i = 0; i < COUNT; i++) {
             longsD[i] = (longsA[i] + longsB[i]) + (longsA[i] + longsC[i]) + (longsB[i] + longsC[i]);
             resL &= longsD[i];
         }
+        bh.consume(resL);
     }
 
     @Benchmark
-    public void orRedL() {
+    public void orRedL(Blackhole bh) {
+        long resL = 0x00000000;
         for (int i = 0; i < COUNT; i++) {
             longsD[i] = (longsA[i] + longsB[i]) + (longsA[i] + longsC[i]) + (longsB[i] + longsC[i]);
             resL |= longsD[i];
         }
+        bh.consume(resL);
     }
 
     @Benchmark
-    public void xorRedL() {
+    public void xorRedL(Blackhole bh) {
+        long resL = 0x00000000;
         for (int i = 0; i < COUNT; i++) {
             longsD[i] = (longsA[i] + longsB[i]) + (longsA[i] + longsC[i]) + (longsB[i] + longsC[i]);
             resL ^= longsD[i];
         }
+        bh.consume(resL);
     }
 
-    @Fork(value = 1, jvmArgsPrepend = {
+    @Benchmark
+    public void andRedIPartiallyUnrolled(Blackhole bh) {
+        int resI = 0xFFFF;
+        for (int i = 0; i < COUNT / 2; i++) {
+            int j = 2*i;
+            intsD[j] = (intsA[j] * intsB[j]) + (intsA[j] * intsC[j]) + (intsB[j] * intsC[j]);
+            resI &= intsD[j];
+            j = 2*i + 1;
+            intsD[j] = (intsA[j] * intsB[j]) + (intsA[j] * intsC[j]) + (intsB[j] * intsC[j]);
+            resI &= intsD[j];
+        }
+        bh.consume(resI);
+    }
+
+    @Benchmark
+    public void andRedIOnGlobalAccumulator() {
+        globalResI = 0xFFFF;
+        for (int i = 0; i < COUNT; i++) {
+            intsD[i] = (intsA[i] * intsB[i]) + (intsA[i] * intsC[i]) + (intsB[i] * intsC[i]);
+            globalResI &= intsD[i];
+        }
+    }
+
+    @Fork(value = 2, jvmArgsPrepend = {
         "-XX:+UseSuperWord"
     })
     public static class WithSuperword extends VectorReduction {
 
     }
 
-    @Fork(value = 1, jvmArgsPrepend = {
+    @Fork(value = 2, jvmArgsPrepend = {
         "-XX:-UseSuperWord"
     })
     public static class NoSuperword extends VectorReduction {

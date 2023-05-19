@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003, 2020, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2003, 2023, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -82,12 +82,18 @@ static jlong page_size = 0;
   #define closedir closedir64
 #endif
 
+static void throw_internal_error(JNIEnv* env, const char* msg) {
+    char errmsg[128];
+
+    snprintf(errmsg, sizeof(errmsg), "errno: %d error: %s\n", errno, msg);
+    JNU_ThrowInternalError(env, errmsg);
+}
+
 // true = get available swap in bytes
 // false = get total swap in bytes
 static jlong get_total_or_available_swap_space_size(JNIEnv* env, jboolean available) {
 #if defined(__linux__)
     int ret;
-    FILE *fp;
     jlong total = 0, avail = 0;
 
     struct sysinfo si;
@@ -311,7 +317,7 @@ Java_com_sun_management_internal_OperatingSystemImpl_getOpenFileDescriptorCount0
         return -1;
     }
 
-    // allocate memory to hold the fd information (we don't acutally use this information
+    // allocate memory to hold the fd information (we don't actually use this information
     // but need it to get the number of open files)
     fds_size = bsdinfo.pbi_nfiles * sizeof(struct proc_fdinfo);
     fds = malloc(fds_size);
